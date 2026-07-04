@@ -396,6 +396,7 @@ h2{font-weight:800;font-size:clamp(1.9rem,3.5vw,2.8rem);line-height:1.12;margin:
   background:var(--glass);border:1px dashed var(--line2);border-radius:var(--r);
   padding:3.2rem;text-align:center;color:var(--muted);
 }
+.load-more-row{display:flex;justify-content:center;padding:1rem 0 .4rem}
 
 /* modal */
 .modal-back{position:fixed;inset:0;background:rgba(4,7,14,.7);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
@@ -1011,6 +1012,7 @@ $("scanBtn").addEventListener("click", async ()=>{
   $("panelUpload").style.display = "none";
   $("panelPrefs").style.display = "none";
   $("scanning").classList.add("show");
+  $("scanning").scrollIntoView({behavior:"smooth", block:"center"});
   let i = 0;
   $("scanStatus").textContent = SCAN_MSGS[0];
   scanTimer = setInterval(()=>{ i=(i+1)%SCAN_MSGS.length; $("scanStatus").textContent = SCAN_MSGS[i]; }, 3200);
@@ -1030,6 +1032,7 @@ $("scanBtn").addEventListener("click", async ()=>{
       $("panelUpload").style.display = "block";
       $("panelPrefs").style.display = "block";
       $("fix3").classList.remove("active"); $("fix2").classList.add("active"); $("fix2").classList.remove("done");
+      $("panelPrefs").scrollIntoView({behavior:"smooth", block:"center"});
     }, 2600);
   }
 });
@@ -1042,7 +1045,7 @@ CANDIDATE: ${p.title}, ${p.seniority}, ${p.years||"several"} yrs. Key skills: ${
 TARGET ROLES: ${pr.roles}. ${angle}
 LOCATION: ${pr.district?pr.district+", ":""}${pr.country}. Work modes accepted: ${pr.modes.join("/")}. Employment types: ${pr.types.join("/")}.${pr.salary?" Min salary: "+pr.salary+".":""}
 
-Search job boards and career sites for this location. Then respond with ONLY a compact JSON array (no markdown, no commentary) of up to 5 real vacancies you found:
+Search job boards and career sites for this location. Then respond with ONLY a compact JSON array (no markdown, no commentary) of up to 6 real vacancies you found:
 [{"t":"job title","c":"company","l":"city/district","co":"country","ty":"Permanent|Contract|Part-time|Hourly|Internship","mo":"On-site|Hybrid|Remote","sal":"salary if stated else ''","u":"direct URL to the posting","src":"site name","m":85,"why":"one short sentence: why this matches the candidate","gap":["up to 2 required skills the candidate lacks"],"gr":"low|medium|high","grw":"3-6 word ghost-risk reason"}]
 "m" is your honest 0-100 match score vs the CV. "gr" is ghost-job risk (high if vague/old/reposted/no company detail). Keep every field SHORT. JSON only.`;
 }
@@ -1051,8 +1054,10 @@ let lastSweepError = null;
 async function runSweep(){
   lastSweepError = null;
   const angles = [
-    "Focus on the candidate's primary specialisation.",
-    "Focus on adjacent or secondary roles they also qualify for, and remote-friendly openings."
+    "Focus on the candidate's primary specialisation at their seniority level.",
+    "Focus on adjacent or secondary roles they also qualify for.",
+    "Focus on remote-friendly and international openings they could do from their location.",
+    "Focus on openings at smaller companies, startups and lesser-known job boards that others might miss."
   ];
   const results = await Promise.allSettled(angles.map(a=>askClaude(sweepPrompt(a), true)));
   let jobs = [];
@@ -1075,6 +1080,7 @@ async function runSweep(){
 
 /* ================= RESULTS & FILTERS ================= */
 function initResults(){
+  visibleCount = PAGE_SIZE;
   const jobs = state.jobs;
   const uniq = (arr)=>[...new Set(arr)].filter(Boolean);
   $("fTypes").innerHTML = uniq(jobs.map(j=>j.type)).map(t=>
@@ -1089,11 +1095,15 @@ function initResults(){
   $("results").scrollIntoView({behavior:"smooth"});
 }
 
-const onFilter = ()=>{ $("fMatchVal").textContent = $("fMatch").value + "%"; render(); };
+const PAGE_SIZE = 10;
+let visibleCount = PAGE_SIZE;
+
+const onFilter = ()=>{ visibleCount = PAGE_SIZE; $("fMatchVal").textContent = $("fMatch").value + "%"; render(); };
 ["fSearch","fMatch","fCountry","fDistrict","fNoGhost","fSort"].forEach(id=>{
   ["input","change"].forEach(ev=>$(id).addEventListener(ev, onFilter));
 });
 $("fReset").addEventListener("click", ()=>{
+  visibleCount = PAGE_SIZE;
   $("fSearch").value=""; $("fMatch").value=0; $("fMatchVal").textContent="0%";
   $("fCountry").value=""; $("fDistrict").value=""; $("fNoGhost").checked=false; $("fSort").value="match";
   document.querySelectorAll(".ftype,.fmode").forEach(el=>el.checked=true);
@@ -1129,13 +1139,16 @@ function render(){
   if(sort==="title") list.sort((a,b)=>a.title.localeCompare(b.title));
   if(sort==="ghost"){ const w={low:0,medium:1,high:2}; list.sort((a,b)=>(w[a.ghost]??1)-(w[b.ghost]??1) || b.match-a.match); }
 
-  $("resultsCount").textContent = `${list.length} of ${state.jobs.length} contacts shown · sourced live from the web`;
+  const shown = Math.min(visibleCount, list.length);
+  $("resultsCount").textContent = `Showing ${shown} of ${list.length} matched · ${state.jobs.length} total contacts · sourced live from the web`;
   const el = $("jobList");
   if(!list.length){
     el.innerHTML = `<div class="empty-state"><b>No contacts in this sector.</b><br>Loosen a filter, or run a new sweep with a wider heading.</div>`;
     return;
   }
-  el.innerHTML = list.map((j,idx)=>{
+  const page = list.slice(0, visibleCount);
+  const moreLeft = list.length - page.length;
+  el.innerHTML = page.map((j,idx)=>{
     const circ = 2*Math.PI*34, off = circ*(1-j.match/100);
     return `
     <article class="job-card" style="animation-delay:${Math.min(idx*70,420)}ms">
@@ -1166,7 +1179,12 @@ function render(){
         </div>
       </div>
     </article>`;
-  }).join("");
+  }).join("") + (moreLeft > 0 ? `
+    <div class="load-more-row">
+      <button class="btn btn-glass" id="loadMore">Show ${Math.min(PAGE_SIZE, moreLeft)} more <span class="mono" style="font-size:.72rem;opacity:.7">(${moreLeft} remaining)</span></button>
+    </div>` : "");
+  const lm = document.getElementById("loadMore");
+  if(lm) lm.addEventListener("click", ()=>{ visibleCount += PAGE_SIZE; render(); });
   // animate gauges after paint
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     el.querySelectorAll("circle.val").forEach(c=>{ c.style.strokeDashoffset = c.dataset.off; });

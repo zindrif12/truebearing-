@@ -1,0 +1,12 @@
+{
+  "name": "truebearing",
+  "version": "1.0.0",
+  "description": "AI job radar — upload your CV, get matched against live vacancies across the web",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "cd test && npm install --silent && node e2e.test.js"
+  },
+  "engines": { "node": ">=18" },
+  "license": "MIT"
+}

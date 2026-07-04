@@ -1,5 +1,8 @@
 # Render Blueprint — one-click deploy
-# On render.com: New + → Blueprint → pick this repo → set ANTHROPIC_API_KEY → Apply
+# On render.com: New + → Blueprint → pick this repo → paste your key → Apply
+# FREE:  get a GEMINI_API_KEY at https://aistudio.google.com/apikey (no card)
+# PAID:  use ANTHROPIC_API_KEY from https://console.anthropic.com instead
+#        (add it manually in the Render dashboard under Environment)
 services:
   - type: web
     name: truebearing
@@ -9,5 +12,5 @@ services:
     startCommand: node server.js
     healthCheckPath: /
     envVars:
-      - key: ANTHROPIC_API_KEY
+      - key: GEMINI_API_KEY
         sync: false   # you will be prompted to paste your key securely

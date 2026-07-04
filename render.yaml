@@ -1,0 +1,13 @@
+# Render Blueprint — one-click deploy
+# On render.com: New + → Blueprint → pick this repo → set ANTHROPIC_API_KEY → Apply
+services:
+  - type: web
+    name: truebearing
+    runtime: node
+    plan: free
+    buildCommand: ""
+    startCommand: node server.js
+    healthCheckPath: /
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false   # you will be prompted to paste your key securely
